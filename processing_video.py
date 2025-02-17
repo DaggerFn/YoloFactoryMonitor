@@ -4,9 +4,9 @@ from time import time, sleep
 from threading import Lock
 from numpy import zeros, uint8
 from datetime import timedelta
-#from data_utils import infObjects, updateAPI, pass_class_api 
 from config import camera_urls, rois, roi_points_worker
 from threading import Lock
+
 
 # Inicializa os frames e frames anotados globais
 global_frames = [None] * len(camera_urls)
@@ -339,7 +339,7 @@ def count_operation(id):
 
 
 def generate_raw_camera(camera_id):
-    encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 5]
+    encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 1]
 
     while True:
         sleep(0.05)
@@ -356,7 +356,7 @@ def generate_raw_camera(camera_id):
 
 
 def generate_camera_motor(camera_id):
-    encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 5]
+    encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 1]
 
     while True:
         sleep(0.05)
@@ -373,7 +373,7 @@ def generate_camera_motor(camera_id):
 
 
 def generate_cropped_frames(camera_id):
-    encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 5]
+    encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 1]
 
     while True:
         sleep(0.05)
