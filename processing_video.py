@@ -46,6 +46,56 @@ lock = Lock()
 tempo_ultima_detecao = {}  # Dicionário para armazenar o tempo da última detecção
 
 
+#FPS  VAR
+
+#Fps por id 
+global_fps = {}  # Exemplo: {0: 15.23, 1: 12.34, ...}
+
+# global_fps_frames: lista para armazenar os frames com o FPS desenhado
+global_fps_frames = [None] * len(camera_urls)
+
+
+def imageUpdater(id, video_path, interval):
+    """
+    Atualiza o frame da câmera, calcula o FPS e desenha-o no frame.
+    """
+    global global_frames, global_fps
+    
+    cap = cv2.VideoCapture(video_path)
+    last_time = time()
+    start_time = time()
+    frame_counter = 0
+
+    while True:
+        current_time = time()
+        if current_time - last_time >= interval:
+            last_time = current_time
+            success, frame = cap.read()
+            if success:
+                frame_counter += 1
+                # Se passou 1 segundo, calcula o FPS e atualiza no dicionário para este ID
+                if current_time - start_time >= 1.0:
+                    fps = frame_counter / (current_time - start_time)
+                    global_fps[id] = fps
+                    # Reinicia a contagem
+                    frame_counter = 0
+                    start_time = current_time
+                # Redimensiona o frame
+                frame = cv2.resize(frame, (480, 320))
+                with frame_lock:
+                    global_frames[id] = frame
+                # Atualiza os frames cortados conforme suas funções
+                crop_frames_by_rois()
+                crop_frames_by_rois_worker()
+                # Desenha o FPS no frame e atualiza o global_fps_frames
+                draw_fps_in_frame(id)
+            else:
+                cap.grab()
+
+
+"""
+#Update imagens but no count fps
+
 def imageUpdater(id, video_path, interval):
     global global_frames
     cap = cv2.VideoCapture(video_path)
@@ -64,8 +114,6 @@ def imageUpdater(id, video_path, interval):
         else:
             cap.grab()
 
-
-"""
 def draw_count_in_frame(id):
     global global_frames
     
@@ -131,6 +179,42 @@ def crop_frames_by_rois_worker():
                 frames_worker[idx] = None
 
 
+def draw_fps_in_frame(id):
+    """
+    Cria um novo frame com o FPS desenhado, utilizando o valor global_fps para o ID fornecido.
+    """
+    global global_frames, global_fps, global_fps_frames
+
+    font = cv2.FONT_HERSHEY_SIMPLEX
+
+    # Validação se o ID possui um FPS definido
+    if id not in global_fps:
+        print(f"ID {id} não encontrado em global_fps.")
+        sleep(1)  # ou tratar de outra forma
+        return None
+
+    # Validação se o frame existe
+    if id >= len(global_frames) or global_frames[id] is None:
+        print(f"Frame inválido para o ID {id} em global_frames.")
+        sleep(1)
+        return None
+
+    # Obter o valor do FPS e formatar o texto
+    fps_value = global_fps.get(id, 0)
+    fps_text = f"FPS: {fps_value:.2f}"
+
+    # Cria uma cópia do frame original para não sobrescrever o frame original
+    new_frame = global_frames[id].copy()
+
+    # Desenha o texto no frame (posição, fonte, escala, cor, espessura e tipo de linha)
+    new_frame = cv2.putText(new_frame, fps_text, (50, 50), font, 1, (0, 255, 255), 2, cv2.LINE_4)
+
+    # Armazena o novo frame globalmente
+    global_fps_frames[id] = new_frame
+
+    return new_frame
+
+
 """
 def draw_roi(camera_id ,frame, rois, detections):
     
@@ -175,7 +259,7 @@ def count_motor(id):
     #model = YOLO(r'/home/sim/code/models/modelo_linha/linha_11m.pt').to('cuda')
     
     #OpenVino model
-    model = YOLO('/home/sim/code/models/linha_11m_openvino_model/')#.to('cpu')
+    model = YOLO(r'models\linha_11m.pt')#.to('cpu')
     
     while True:
         start = time()
@@ -205,9 +289,6 @@ def count_motor(id):
                     # Incrementa apenas se passou o cooldown e antes não estava presente
                     if estado_anterior[id] == 0 and tempo_decorrido > TEMPO_DE_COOLDOWN:
                         contador[id]['Quantidade'] += 1
-                        #print("###################################")
-                        #print('contador e \n',contador)
-                        #print(f"[{id}] Motor contado! Total: {contador[id]['Quantidade']}")
                         
                         # Atualiza o tempo da última detecção
                         tempo_ultima_detecao[id] = tempo_atual
@@ -244,7 +325,7 @@ def count_operation(id):
     global classes_operation, operacao, operacao_anterior, tempo_ultima_operacao
     
     #pt model
-    model = YOLO(r'/home/sim/code/models/modelo_linha/linha_11m.pt').to('cuda')
+    model = YOLO(r'models\linha_11m.pt')
     
     #OpenVino model
     #model = YOLO('/home/sim/code/models/linha_11m_openvino_model/')#.to('cpu')
@@ -274,12 +355,6 @@ def count_operation(id):
                 
                 tem_operacao = any('motor' and 'hand'in cls.lower() for cls in classes_operation)    
                 
-                #pass_class_api(detected_classes)
-                #rois_camera = rois[id]['points']
-                #print([id],'Classes detectadas', classes_operation)
-                #detections = results[0].boxes.xyxy.cpu().numpy().tolist()                
-                #annotated_frame = draw_roi(id ,annotated_frame, rois_camera, detections)
-                
                 if id not in operacao:
                     operacao[id] = {'Operação': 0}
                 if id not in operacao_anterior:
@@ -291,38 +366,7 @@ def count_operation(id):
                     operacao[id]['Operação'] = 'Operando'
                 else:
                     operacao[id]['Operação'] = 'Parado'
-                
-                
-                """
-                # Verifica se o motor apareceu e antes não estava presente
-                if tem_operacao:
-                    tempo_atual_op = time()
-                    tempo_decorrido = tempo_atual_op - tempo_ultima_operacao[id]
 
-                    # Incrementa apenas se passou o cooldown e antes não estava presente
-                    if operacao_anterior[id] == 0 and tempo_decorrido > TEMPO_DE_COOLDOWN:
-                        operacao[id]['Operação'] = 1
-                        print("###################################")
-                        #print('operacao e \n',operacao)
-                        print(f"[{id}] Operação identificada ! Status: {operacao[id]['Operação']}")
-                        
-                        # Atualiza o tempo da última operação
-                        tempo_ultima_operacao[id] = tempo_atual_op
-
-                    # Atualiza estado para indicar que está em operação
-                    operacao_anterior[id] = 1  
-
-                else:
-                    # Se nao esta em operação, atualiza o estado para 0
-                    operacao_anterior[id] = 0  
-                """
-                
-                
-                #logInfo(id)
-                #print('No id', [4], operacao[4])
-                #print("###################################")
-                
-                
                 with frame_lock:
                     annotated_frames_worker[id] = annotated_frame
             else:
@@ -387,4 +431,20 @@ def generate_cropped_frames(camera_id):
             else:
                 yield (b'--frame\r\n'
                        b'Content-Type: text/plain\r\n\r\n' + b'Waiting for the cropped frame...\r\n')
-        
+
+
+def frame_fps(camera_id):
+    encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 1]
+
+    while True:
+        sleep(0.05)
+        with frame_lock:
+            frame = global_fps_frames[camera_id]
+            if frame is not None:
+                _, jpeg = cv2.imencode('.jpg', frame, encode_param)
+                frame_bytes = jpeg.tobytes()
+                yield (b'--frame\r\n'
+                       b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+            else:
+                yield (b'--frame\r\n'
+                       b'Content-Type: text/plain\r\n\r\n' + b'Waiting for the cropped frame...\r\n')

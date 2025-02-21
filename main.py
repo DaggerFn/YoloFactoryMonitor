@@ -1,6 +1,6 @@
 from threading import Lock, Thread
 from processing_video import imageUpdater, count_motor, count_operation, generate_raw_camera
-from processing_video import generate_camera_motor, varReturn
+from processing_video import generate_camera_motor, varReturn, frame_fps
 from config import camera_urls
 import logging
 from flask import Flask, Response, jsonify, render_template
@@ -62,6 +62,18 @@ def video_raw_camera_feed(camera_id):
     except ValueError:
         return "O ID da câmera deve ser um inteiro.", 400
 '''
+
+
+@app.route('/frames_fps<camera_id>')
+def cropped_frames_feed(camera_id):
+    try:
+        camera_id = int(camera_id)
+        if 0 <= camera_id < len(camera_urls):
+            return Response(frame_fps(camera_id), mimetype='multipart/x-mixed-replace; boundary=frame')
+        else:
+            return f"Invalid camera ID: {camera_id}", 404
+    except ValueError:
+        return "Camera ID must be an integer.", 400
 
 
 if __name__ == '__main__':
