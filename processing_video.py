@@ -93,6 +93,42 @@ def imageUpdater(id, video_path, interval):
                 cap.grab()
 
 
+def draw_fps_in_frame(id):
+    """
+    Cria um novo frame com o FPS desenhado, utilizando o valor global_fps para o ID fornecido.
+    """
+    global global_frames, global_fps, global_fps_frames
+
+    font = cv2.FONT_HERSHEY_SIMPLEX
+
+    # Validação se o ID possui um FPS definido
+    if id not in global_fps:
+        print(f"ID {id} não encontrado em global_fps.")
+        sleep(1)  # ou tratar de outra forma
+        return None
+
+    # Validação se o frame existe
+    if id >= len(global_frames) or global_frames[id] is None:
+        print(f"Frame inválido para o ID {id} em global_frames.")
+        sleep(1)
+        return None
+
+    # Obter o valor do FPS e formatar o texto
+    fps_value = global_fps.get(id, 0)
+    fps_text = f"FPS: {fps_value:.2f}"
+
+    # Cria uma cópia do frame original para não sobrescrever o frame original
+    new_frame = global_frames[id].copy()
+
+    # Desenha o texto no frame (posição, fonte, escala, cor, espessura e tipo de linha)
+    new_frame = cv2.putText(new_frame, fps_text, (50, 50), font, 1, (0, 255, 255), 2, cv2.LINE_4)
+
+    # Armazena o novo frame globalmente
+    global_fps_frames[id] = new_frame
+
+    return new_frame
+
+
 """
 #Update imagens but no count fps
 
@@ -178,41 +214,6 @@ def crop_frames_by_rois_worker():
             else:
                 frames_worker[idx] = None
 
-
-def draw_fps_in_frame(id):
-    """
-    Cria um novo frame com o FPS desenhado, utilizando o valor global_fps para o ID fornecido.
-    """
-    global global_frames, global_fps, global_fps_frames
-
-    font = cv2.FONT_HERSHEY_SIMPLEX
-
-    # Validação se o ID possui um FPS definido
-    if id not in global_fps:
-        print(f"ID {id} não encontrado em global_fps.")
-        sleep(1)  # ou tratar de outra forma
-        return None
-
-    # Validação se o frame existe
-    if id >= len(global_frames) or global_frames[id] is None:
-        print(f"Frame inválido para o ID {id} em global_frames.")
-        sleep(1)
-        return None
-
-    # Obter o valor do FPS e formatar o texto
-    fps_value = global_fps.get(id, 0)
-    fps_text = f"FPS: {fps_value:.2f}"
-
-    # Cria uma cópia do frame original para não sobrescrever o frame original
-    new_frame = global_frames[id].copy()
-
-    # Desenha o texto no frame (posição, fonte, escala, cor, espessura e tipo de linha)
-    new_frame = cv2.putText(new_frame, fps_text, (50, 50), font, 1, (0, 255, 255), 2, cv2.LINE_4)
-
-    # Armazena o novo frame globalmente
-    global_fps_frames[id] = new_frame
-
-    return new_frame
 
 
 """
