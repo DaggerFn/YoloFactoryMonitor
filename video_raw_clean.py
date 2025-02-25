@@ -27,10 +27,7 @@ app = Flask(__name__)
 global_frames = [np.zeros((320, 480, 3), dtype=np.uint8)] * len(camera_urls)  # Inicializa corretamente
 frame_lock = Lock()
 annotated_frames = [None] * len(camera_urls)
-
-fps = None
-
-global_fps = []
+#fps = float|str
 
 def imageUpdater(id, video_path, interval):
     """
@@ -43,7 +40,7 @@ def imageUpdater(id, video_path, interval):
     start_time = time()
     frame_counter = 0
     font = cv2.FONT_HERSHEY_SIMPLEX
-
+    fps_text = None
     
     while True:
         current_time = time()
@@ -58,50 +55,16 @@ def imageUpdater(id, video_path, interval):
                     # Reinicia a contagem
                     frame_counter = 0
                     start_time = current_time
-                # Redimensiona o frame
-                frame = cv2.resize(frame, (1280, 720))
+                    fps_text = (f"FPS: {fps:.2f}")
+                # Redimensiona o frame e adiciona FPS
                 
-                fps_text = (f"FPS: {fps}")
+                frame = cv2.resize(frame, (1280, 720))
                 frame = cv2.putText(frame, fps_text, (50, 50), font, 1, (0, 255, 255), 2, cv2.LINE_4)
                 
                 with frame_lock:
                     global_frames[id] = frame
             else:
                 cap.grab()
-
-
-def draw_fps_in_frame(id, frame):
-    """
-    Cria um novo frame com o FPS desenhado, utilizando o valor global_fps para o ID fornecido.
-    """
-    font = cv2.FONT_HERSHEY_SIMPLEX
-
-    # Validação se o ID possui um FPS definido
-    if id not in global_fps:
-        print(f"ID {id} não encontrado em global_fps.")
-        sleep(1)  # ou tratar de outra forma
-        return None
-
-    # Validação se o frame existe
-    if id >= len(global_frames) or global_frames[id] is None:
-        print(f"Frame inválido para o ID {id} em global_frames.")
-        sleep(1)
-        return None
-
-    # Obter o valor do FPS e formatar o texto
-    fps_value = global_fps.get(id, 0)
-    fps_text = f"FPS: {fps_value:.2f}"
-
-    # Cria uma cópia do frame original para não sobrescrever o frame original
-    new_frame = global_frames[id].copy()
-
-    # Desenha o texto no frame (posição, fonte, escala, cor, espessura e tipo de linha)
-    new_frame = cv2.putText(new_frame, fps_text, (50, 50), font, 1, (0, 255, 255), 2, cv2.LINE_4)
-
-    # Armazena o novo frame globalmente
-    frame = new_frame
-
-    return frame
 
 
 def generate_raw_camera(camera_id):

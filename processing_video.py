@@ -54,11 +54,50 @@ global_fps = {}  # Exemplo: {0: 15.23, 1: 12.34, ...}
 # global_fps_frames: lista para armazenar os frames com o FPS desenhado
 global_fps_frames = [None] * len(camera_urls)
 
-
 def imageUpdater(id, video_path, interval):
     """
     Atualiza o frame da câmera, calcula o FPS e desenha-o no frame.
     """
+    global global_frames, fps
+    
+    cap = cv2.VideoCapture(video_path)
+    last_time = time()
+    start_time = time()
+    frame_counter = 0
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    fps_text = None
+    
+    while True:
+        current_time = time()
+        if current_time - last_time >= interval:
+            last_time = current_time
+            success, frame = cap.read()
+            if success:
+                frame_counter += 1
+                # Se passou 1 segundo, calcula o FPS e atualiza no dicionário para este ID
+                if current_time - start_time >= 1.0:
+                    fps = frame_counter / (current_time - start_time)
+                    # Reinicia a contagem
+                    frame_counter = 0
+                    start_time = current_time
+                    fps_text = (f"FPS: {fps:.2f}")
+                # Redimensiona o frame e adiciona FPS
+                
+                frame = cv2.resize(frame, (1280, 720))
+                frame = cv2.putText(frame, fps_text, (50, 50), font, 1, (0, 255, 255), 2, cv2.LINE_4)
+                
+                with frame_lock:
+                    global_frames[id] = frame        # Atualiza os frames cortados conforme suas funções
+                crop_frames_by_rois()
+                crop_frames_by_rois_worker()
+                # Desenha o FPS no frame e atualiza o global_fps_frames
+            else:
+                cap.grab()
+
+
+"""
+def imageUpdater(id, video_path, interval):
+
     global global_frames, global_fps
     
     cap = cv2.VideoCapture(video_path)
@@ -88,48 +127,9 @@ def imageUpdater(id, video_path, interval):
                 crop_frames_by_rois()
                 crop_frames_by_rois_worker()
                 # Desenha o FPS no frame e atualiza o global_fps_frames
-                draw_fps_in_frame(id)
             else:
                 cap.grab()
 
-
-def draw_fps_in_frame(id):
-    """
-    Cria um novo frame com o FPS desenhado, utilizando o valor global_fps para o ID fornecido.
-    """
-    global global_frames, global_fps, global_fps_frames
-
-    font = cv2.FONT_HERSHEY_SIMPLEX
-
-    # Validação se o ID possui um FPS definido
-    if id not in global_fps:
-        print(f"ID {id} não encontrado em global_fps.")
-        sleep(1)  # ou tratar de outra forma
-        return None
-
-    # Validação se o frame existe
-    if id >= len(global_frames) or global_frames[id] is None:
-        print(f"Frame inválido para o ID {id} em global_frames.")
-        sleep(1)
-        return None
-
-    # Obter o valor do FPS e formatar o texto
-    fps_value = global_fps.get(id, 0)
-    fps_text = f"FPS: {fps_value:.2f}"
-
-    # Cria uma cópia do frame original para não sobrescrever o frame original
-    new_frame = global_frames[id].copy()
-
-    # Desenha o texto no frame (posição, fonte, escala, cor, espessura e tipo de linha)
-    new_frame = cv2.putText(new_frame, fps_text, (50, 50), font, 1, (0, 255, 255), 2, cv2.LINE_4)
-
-    # Armazena o novo frame globalmente
-    global_fps_frames[id] = new_frame
-
-    return new_frame
-
-
-"""
 #Update imagens but no count fps
 
 def imageUpdater(id, video_path, interval):
@@ -149,33 +149,7 @@ def imageUpdater(id, video_path, interval):
                 crop_frames_by_rois_worker()
         else:
             cap.grab()
-
-def draw_count_in_frame(id):
-    global global_frames
-    
-    font = cv2.FONT_HERSHEY_SIMPLEX
-
-    # Obter o contador atualizado
-    
-    contador_for_def = export_var_contador()
-
-    if len(export_var_contador()) <= 5:
-        
-        # Validar se o id existe no contador e no global_frames
-        if id not in contador_for_def:
-            print(f"ID {id} não encontrado em contador_for_def.")
-            sleep(20)
-        if id not in global_frames or global_frames[id] is None:
-            print(f"Frame inválido para o ID {id} em global_frames.")
-            sleep(20)
-
-        # Obter o valor de 'Quantidade' e converter para string
-        quantidade = str(contador_for_def[id]['Quantidade'])
-
-        # Adicionar o texto ao frame
-        return cv2.putText(global_frames[id], quantidade, (50, 50), font, 1, (0, 255, 255), 2, cv2.LINE_4)
 """
-
 
 def crop_frames_by_rois():
     """
@@ -213,24 +187,6 @@ def crop_frames_by_rois_worker():
                 frames_worker[idx] = cropped_frame_worker
             else:
                 frames_worker[idx] = None
-
-
-
-"""
-def draw_roi(camera_id ,frame, rois, detections):
-    
-    Desenha uma retangulo  no frame na posição especificada.
-    
-    roi_count = 0
-    isClosed=True
-    color=(0, 0, 255)
-    thickness=4
-    
-    #Desenha a ROI no frame
-    cv2.polylines(frame, [rois],isClosed , color, thickness)
-    #print('roi desenhada na camera',camera_id)
-    return frame
-"""
 
 
 def varReturn():
@@ -384,7 +340,7 @@ def count_operation(id):
 
 
 def generate_raw_camera(camera_id):
-    encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 1]
+    encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 100]
 
     while True:
         sleep(0.05)
@@ -433,19 +389,3 @@ def generate_cropped_frames(camera_id):
                 yield (b'--frame\r\n'
                        b'Content-Type: text/plain\r\n\r\n' + b'Waiting for the cropped frame...\r\n')
 
-
-def frame_fps(camera_id):
-    encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 1]
-
-    while True:
-        sleep(0.05)
-        with frame_lock:
-            frame = global_fps_frames[camera_id]
-            if frame is not None:
-                _, jpeg = cv2.imencode('.jpg', frame, encode_param)
-                frame_bytes = jpeg.tobytes()
-                yield (b'--frame\r\n'
-                       b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-            else:
-                yield (b'--frame\r\n'
-                       b'Content-Type: text/plain\r\n\r\n' + b'Waiting for the cropped frame...\r\n')

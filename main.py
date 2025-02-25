@@ -1,9 +1,9 @@
 from threading import Lock, Thread
 from processing_video import imageUpdater, count_motor, count_operation, generate_raw_camera
-from processing_video import generate_camera_motor, varReturn, frame_fps
+from processing_video import varReturn
 from config import camera_urls
 import logging
-from flask import Flask, Response, jsonify, render_template
+from flask import Flask, Response, jsonify
 from flask_cors import CORS
 from data_utils import makeJson, updateAPI
 
@@ -64,12 +64,12 @@ def video_raw_camera_feed(camera_id):
 '''
 
 
-@app.route('/frames_fps<camera_id>')
+@app.route('/video_raw<camera_id>')
 def cropped_frames_feed(camera_id):
     try:
         camera_id = int(camera_id)
         if 0 <= camera_id < len(camera_urls):
-            return Response(frame_fps(camera_id), mimetype='multipart/x-mixed-replace; boundary=frame')
+            return Response(generate_raw_camera(camera_id), mimetype='multipart/x-mixed-replace; boundary=frame')
         else:
             return f"Invalid camera ID: {camera_id}", 404
     except ValueError:
@@ -104,4 +104,4 @@ if __name__ == '__main__':
     threads.append(thread)
     
     # Inicializa o servidor Flask
-    app.run(host='0.0.0.0', port=4000)
+    app.run(host='0.0.0.0', port=5000)
